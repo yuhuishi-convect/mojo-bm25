@@ -15,7 +15,7 @@ import numpy as np
 from max.driver import Accelerator, CPU, accelerator_count
 from max.dtype import DType
 from max.engine import InferenceSession
-from .common import matrix_multiplication
+from gpu_bm25.common import gpu_execute_query
 import math
 from collections import Counter
 
@@ -52,7 +52,7 @@ class BM25:
 
         Args:
             corpus (list of list of str): A list where each element is a document,
-                                           represented as a list of tokens.
+                                           r, get_modelepresented as a list of tokens.
                                            Assumes corpus is pre-processed (e.g., tokenized, lowercased).
         """
         self.corpus_size = len(corpus)
@@ -194,6 +194,19 @@ class BM25:
 
         return top_documents
 
+
+from pathlib import Path
+from max.driver import Accelerator, CPU, accelerator_count
+from max.engine import InferenceSession
+
+
+def get_session() -> InferenceSession:
+    # Note: change this to the ID of the GPU you will use.
+    DEVICE_ID = 0
+
+    device = CPU() if accelerator_count() == 0 else Accelerator(id=DEVICE_ID)
+    return InferenceSession(devices=[device])
+
 def test_bm25_retrival(session: InferenceSession) -> None:
     test_docs = [
         "The quick brown fox jumps over the lazy dog",
@@ -219,12 +232,13 @@ def test_bm25_retrival(session: InferenceSession) -> None:
     tokenizer = lambda x: x.lower().split()
     test_corps = [tokenizer(doc) for doc in test_docs]
 
-    query = input("Enter query: ")
+    query = input("Enter a query: ")
     query = tokenizer(query)
 
     model = BM25()
     model.fit(test_corps)
 
+    print("Reference results")
     print(model.get_top_n(query, test_corps))
 
     score_matrix = model.bm25_matrix.astype(np.float32)
@@ -233,7 +247,7 @@ def test_bm25_retrival(session: InferenceSession) -> None:
         dtype=np.int32
     )
 
-    top_index, top_score = matrix_multiplication(score_matrix, query_vector, "naive", session, session.devices[0])
+    top_index, top_score = gpu_execute_query(score_matrix, query_vector, session, session.devices[0])
     top_index = top_index.item()
     top_score = top_score.item()
 
@@ -244,7 +258,11 @@ def test_bm25_retrival(session: InferenceSession) -> None:
         """
     )
 
-    assert True
+
+if __name__ == "__main__":
+    session = get_session()
+    test_bm25_retrival(session)
+
 
 
 
