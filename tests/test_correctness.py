@@ -22,10 +22,10 @@ def test_bm25_retrival(session: InferenceSession) -> None:
     num_docs = 100
     num_terms = 20
     tf_matrix = np.random.uniform(size=(num_docs, num_terms)).astype(np.float32)
-    query_vector = np.array([
+    query_vector = np.array(
         [1,2,3,4,5],
-        [5,4,3,2,1],
-    ], dtype=np.int32)
+        dtype=np.int32
+    )
 
     result = matrix_multiplication(tf_matrix, query_vector, "naive", session, session.devices[0])
 
